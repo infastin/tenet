@@ -104,7 +104,7 @@ bool is_substack(const T &haystack, const S &needle)
 			break;
 	}
 
-	bool result = memmem(harr, haystack.size(), narr, needle.size()) != NULL;
+	bool result = memmem(harr, haystack.size() * sizeof(A), narr, needle.size() * sizeof(A)) != NULL;
 
 	delete[] harr;
 	delete[] narr;
