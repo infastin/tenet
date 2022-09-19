@@ -2,3 +2,5 @@ build/
 .cache/
 tags
 compile_commands.json
+.vs/
+Debug/

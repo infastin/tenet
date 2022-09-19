@@ -1,0 +1,7 @@
+push 0x10
+pop r0
+add r0, 0x12
+call 0x5
+hlt
+add r0, 0x10
+ret

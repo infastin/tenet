@@ -779,10 +779,10 @@ static vm_ins_result vm_call(vm_struct *vm)
 	}
 
 	vmopvalue_t sp = vm->regs[VM_REG_SP];
-	*(vmopvalue_t *) &vm->stack[sp] = (vmopvalue_t) ip;
+	*(vmopvalue_t *) &vm->stack[sp] = (vmopvalue_t) vm->ip;
 	vm->regs[VM_REG_SP] = (sp + 4) % VM_STACK_SIZE;
 
-	vm->ip = (vm_instruction *) &vm->memory[VM_CODE_START + new_ip];
+	vm->ip = (vm_instruction *) (VM_CODE_START) + new_ip - 1;
 
 	return VM_RESULT_OK;
 }
@@ -792,7 +792,7 @@ static vm_ins_result vm_ret(vm_struct *vm)
 	vmopvalue_t sp = vm->regs[VM_REG_SP];
 	vmopvalue_t new_sp = (sp - 4) % VM_STACK_SIZE;
 
-	vm->ip = (vm_instruction *) vm->stack[new_sp];
+	vm->ip = (vm_instruction *) *(vmopvalue_t*) &vm->stack[new_sp];
 	vm->regs[VM_REG_SP] = new_sp;
 
 	return VM_RESULT_OK;
