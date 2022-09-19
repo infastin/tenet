@@ -51,11 +51,13 @@ typedef unsigned char vmopcode_t;
 #define VM_BREAK 10
 #define VM_PUSH 11
 #define VM_POP 12
-#define VM_LAST_INS 12
+#define VM_CALL 13
+#define VM_RET 14
+#define VM_LAST_INS 14
 // количество инструкций
 #define VM_COUNT_INST (VM_LAST_INS + 1)
 
-static char *vm_mnem[] = { "nop", "in", "out", "mov", "add", "sub", "xor", "and", "or", "hlt", "brk", "push", "pop" };
+static char *vm_mnem[] = { "nop", "in", "out", "mov", "add", "sub", "xor", "and", "or", "hlt", "brk", "push", "pop", "call", "ret" };
 
 // тип обработчиков инструкций
 typedef vm_ins_result (*vm_handler)(vm_struct *vm);
@@ -139,6 +141,8 @@ static vm_ins_result vm_hlt(vm_struct *vm);
 static vm_ins_result vm_break(vm_struct *vm);
 static vm_ins_result vm_push(vm_struct *vm);
 static vm_ins_result vm_pop(vm_struct *vm);
+static vm_ins_result vm_call(vm_struct *vm);
+static vm_ins_result vm_ret(vm_struct *vm);
 
 static void vm_init(vm_struct *vm);
 
@@ -148,7 +152,7 @@ static void vm_disas_ins(vm_struct *vm);
 // global variable
 
 // таблица обработчиков инструкций (опкод инструкции является индексом ее обработчика)
-vm_handler vm_handlers[VM_COUNT_INST] = { vm_nop, vm_in, vm_out, vm_mov, vm_add, vm_sub, vm_xor, vm_and, vm_or, vm_hlt, vm_break, vm_push, vm_pop };
+vm_handler vm_handlers[VM_COUNT_INST] = { vm_nop, vm_in, vm_out, vm_mov, vm_add, vm_sub, vm_xor, vm_and, vm_or, vm_hlt, vm_break, vm_push, vm_pop, vm_call, vm_ret };
 
 //----------------------------------------
 // definition function
@@ -758,6 +762,37 @@ static vm_ins_result vm_pop(vm_struct *vm)
 		return result;
 	}
 
+	vm->regs[VM_REG_SP] = new_sp;
+
+	return VM_RESULT_OK;
+}
+
+static vm_ins_result vm_call(vm_struct *vm)
+{
+	vm_instruction *ip = vm_get_current_instruction(vm);
+	vm_operand *op = &ip->op1;
+
+	vmopvalue_t new_ip;
+
+	if (vm_get_operand(vm, op, &new_ip) != VM_RESULT_OK) {
+		return VM_RESULT_INVALID_OPERAND;
+	}
+
+	vmopvalue_t sp = vm->regs[VM_REG_SP];
+	*(vmopvalue_t *) &vm->stack[sp] = (vmopvalue_t) ip;
+	vm->regs[VM_REG_SP] = (sp + 4) % VM_STACK_SIZE;
+
+	vm->ip = (vm_instruction *) &vm->memory[VM_CODE_START + new_ip];
+
+	return VM_RESULT_OK;
+}
+
+static vm_ins_result vm_ret(vm_struct *vm)
+{
+	vmopvalue_t sp = vm->regs[VM_REG_SP];
+	vmopvalue_t new_sp = (sp - 4) % VM_STACK_SIZE;
+
+	vm->ip = (vm_instruction *) vm->stack[new_sp];
 	vm->regs[VM_REG_SP] = new_sp;
 
 	return VM_RESULT_OK;

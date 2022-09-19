@@ -60,8 +60,12 @@ $opcodes{"push"} = "\x0B";
 $counts_operand{"push"} = 1;
 $opcodes{"pop"} = "\x0C";
 $counts_operand{"pop"} = 1;
+$opcodes{"call"} = "\x0D";
+$counts_operand{"call"} = 1;
+$opcodes{"ret"} = "\x0E";
+$counts_operand{"ret"} = 0;
 
-$count_opcode = 11;
+$count_opcode = 15;
 
 
 sub parse_operand {
