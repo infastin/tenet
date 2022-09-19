@@ -1,0 +1,4 @@
+push 0x10
+pop r0
+add r0, 0x12
+hlt
