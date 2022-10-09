@@ -1,0 +1,201 @@
+; size_t strlen(char *str)
+strlen proc near
+	push ebp
+	mov ebp, esp
+	
+	mov ebx, word ptr [bp+8]
+	xor eax, eax
+
+_strlen_loop:
+	cmp byte ptr [bx], 0
+	je _strlen_out
+	inc eax
+	inc ebx
+	jmp _strlen_loop
+
+_strlen_out:
+	mov esp, ebp
+	pop ebp
+	ret
+strlen endp
+
+; char *strstr(char *haystack, char *needle)
+strstr proc near
+	push bp
+	mov bp, sp
+
+	mov bx, word ptr [bp+4] ; needle
+	cmp byte ptr [bx], 0
+	jne _strstr_loop
+	
+	mov ax, bx
+	jmp _strstr_out
+
+_strstr_loop:
+	mov bx, word ptr [bp+6]
+	cmp byte ptr [bx], 0
+	je _strstr_out_null
+
+	xor si, si ; haystack index
+	xor di, di ; needle index
+
+_strstr_loop2:
+	mov cl, byte ptr [bx+si]
+	mov bx, word ptr [bp+4]
+	cmp cl, byte ptr [bx+di]
+	jne _strstr_loop_again
+
+	inc si
+	inc di
+
+	mov bx, word ptr [bp+4]
+	cmp byte ptr [bx+di], 0
+	je _strstr_out_ptr
+
+	mov bx, word ptr [bp+6]
+	cmp byte ptr [bx+si], 0
+	jne _strstr_loop2
+	jmp _strstr_out_null
+
+_strstr_loop_again:
+	inc word ptr [bp+6]
+	mov bx, word ptr [bp+6]
+	cmp byte ptr [bx], 0
+	jne _strstr_loop
+
+_strstr_out_null:
+	mov ax, 0
+	jmp _strstr_out
+
+_strstr_out_ptr:
+	mov ax, word ptr [bp+6]
+
+_strstr_out:
+	mov sp, bp
+	pop bp
+	ret
+strstr endp
+
+; char *strcpy(char *dst, char *src)
+strcpy proc near
+	push bp
+	mov bp, sp
+
+	mov ax, word ptr [bp+6]
+
+_strcpy_loop:
+	mov bx, word ptr [bp+4]
+	mov cl, byte ptr [bx]
+	mov bx, word ptr [bp+6]
+	mov byte ptr [bx], cl
+
+	cmp cl, 0
+	je _strcpy_out
+	
+	inc word ptr [bp+4]
+	inc word ptr [bp+6]
+	jmp _strcpy_loop
+
+_strcpy_out:
+	mov sp, bp
+	pop bp
+	ret
+strcpy endp
+
+; int strcmp(char *str1, char *str2)
+strcmp proc near
+	push bp
+	mov bp, sp
+
+_strcmp_loop:
+	mov bx, word ptr [bp+6]
+	mov cl, byte ptr [bx]
+	mov bx, word ptr [bp+4]
+	cmp cl, byte ptr [bx]
+	jle _strcmp_loop_L1
+	
+	mov ax, 1
+	jmp _strcmp_out
+	
+_strcmp_loop_L1:
+	je _strcmp_loop_L2
+	mov ax, -1
+	jmp _strcmp_out
+
+_strcmp_loop_L2:
+	inc word ptr [bp+6]
+	inc word ptr [bp+4]
+	jmp _strcmp_loop
+
+_strcmp_out:
+	mov sp, bp
+	pop bp
+	ret
+strcmp endp
+
+; char *strchr(char *str1, char c)
+strchr proc near
+	push bp
+	mov bp, sp
+
+	mov bx, word ptr [bp+6]
+	mov dl, byte ptr [bp+4]
+
+_strchr_loop:
+	cmp byte ptr [bx], 0
+	jne _strchr_loop_L1
+	mov ax, 0
+	jmp _strchr_out
+
+_strchr_loop_L1:
+	cmp byte ptr [bx], dl
+	jne _strchr_loop_L2
+	mov ax, bx
+	jmp _strchr_out
+
+_strchr_loop_L2:
+	inc bx
+	jmp _strchr_loop
+
+_strchr_out:
+	mov sp, bp
+	pop bp
+	ret
+strchr endp
+
+; char *strcat(char *dst, char *src)
+strcat proc near
+	push bp
+	mov bp, sp
+
+	mov bx, word ptr [bp+6]
+	mov ax, bx
+
+_strcat_find_0:
+	cmp byte ptr [bx], 0
+	je _strcat_find_0_out
+	inc bx
+	jmp _strcat_find_0
+
+_strcat_find_0_out:
+	mov word ptr [bp+6], bx
+	
+_strcat_loop:
+	mov bx, word ptr [bp+4]
+	mov dl, byte ptr [bx]
+	mov bx, word ptr [bp+6]
+	mov byte ptr [bx], dl
+	
+	cmp dl, 0
+	je _strcat_out
+	
+	inc word ptr [bp+4]
+	inc word ptr [bp+6]
+	jmp _strcat_loop
+
+_strcat_out:
+	mov sp, bp
+	pop bp
+	ret
+strcat endp
+; vim:ft=masm
