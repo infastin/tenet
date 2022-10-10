@@ -1,10 +1,6 @@
 .686
 .model flat, c
 
-includelib legacy_stdio_definitions.lib
-includelib libcmt.lib
-
-; kernel32.lib msvcrt.lib libcmt.lib
 ExitProcess proto stdcall :dword
 printf proto c :dword, :vararg
 rand proto c
@@ -84,6 +80,7 @@ _main_L3:
 _main_L4:
 	invoke printf, offset formant_nl
 
+	xor eax, eax
 	mov esp, ebp
 	pop ebp
 	ret
