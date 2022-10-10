@@ -2,17 +2,11 @@
 #include <stdlib.h>
 
 extern int *preprocess(const char *needle, int len);
+extern void freplace(const char *dst, const char *src, const char *needle, const char *replace);
 
 int main(int argc, char *argv[])
 {
-	const char *pattern = "ABCDABD";
-	int *table = preprocess(pattern, 7);
-
-	for (int i = 0; i < 8; ++i) {
-		printf("%c: %d\n", pattern[i], table[i]);
-	}
-
-	free(table);
+	freplace("result.txt", "lorem.txt", "ABCDABD", "123456");
 
 	return 0;
 }
