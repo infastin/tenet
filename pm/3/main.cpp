@@ -1,217 +1,182 @@
+#include "evaluator.hpp"
+#include "parser.hpp"
+
+#include <cmath>
 #include <iostream>
 #include <map>
 #include <regex>
+#include <set>
 #include <string>
 #include <vector>
 
-enum TermType {
-	TYPE_NONE = 0,
-	TYPE_CONST = 1,
-	TYPE_VARIABLE = 2,
-	TYPE_FUNCTION = 4,
-	TYPE_BINARY_OPERATOR = 8,
-	TYPE_UNARY_OPERATOR = 16,
-	TYPE_OPEN_BRACKET = 32,
-	TYPE_CLOSING_BRACKET = 64,
-	TYPE_BRACKETS = TYPE_OPEN_BRACKET | TYPE_CLOSING_BRACKET,
-	TYPE_EXPR = TYPE_CONST | TYPE_VARIABLE | TYPE_FUNCTION | TYPE_BRACKETS,
-	TYPE_OPERATOR = TYPE_BINARY_OPERATOR | TYPE_UNARY_OPERATOR,
-	TYPE_ANY = TYPE_EXPR | TYPE_OPERATOR,
+static const std::vector<Parser::BrickRegex> regexes = {
+	Parser::BrickRegexBuilder("\\d+(?:\\.\\d+)?", Parser::Brick::CONST).build(),
+	Parser::BrickRegexBuilder("(\\w+)\\((.*)\\)", Parser::Brick::FUNCTION).group(1).priority(4).recursion(2).build(),
+	Parser::BrickRegexBuilder("\\w+", Parser::Brick::VARIABLE).build(),
+	Parser::BrickRegexBuilder("\\s+", Parser::Brick::NONE).build(),
+	Parser::BrickRegexBuilder("\\((.*)\\)", Parser::Brick::BRACKETS).recursion(1).val().build(),
+	Parser::BrickRegexBuilder("\\-", Parser::Brick::UNARY_OPERATOR).priority(5).val("um").build(),
+	Parser::BrickRegexBuilder("\\+|-", Parser::Brick::BINARY_OPERATOR).priority(1).build(),
+	Parser::BrickRegexBuilder("\\^", Parser::Brick::BINARY_OPERATOR).priority(3).build(),
+	Parser::BrickRegexBuilder("\\*|\\/|%", Parser::Brick::BINARY_OPERATOR).priority(2).build(),
 };
 
-struct Term {
-	std::string val;
-	TermType type;
-	int priority;
+static std::map<std::string, double> variables = {
+	{ "pi", M_PI },
+	{ "e", M_E },
 };
 
-struct TermRegex {
-	std::regex re;
-	std::vector<Term> terms;
-
-	int recursive_group;
-	TermType type;
-	int group;
-	int priority;
-
-	TermRegex(const std::string &re_str, TermType type, int priority = -1, int group = 0, int recursive_group = -1)
-	{
-		this->re = std::regex(re_str);
-		this->type = type;
-		this->priority = priority;
-		this->group = group;
-		this->recursive_group = recursive_group;
-	}
+static std::map<std::string, Evaluator::Operator> operators = {
+	{ "+", [](std::stack<double> &op_stack) -> double {
+		 double op2 = op_stack.top();
+		 op_stack.pop();
+		 double op1 = op_stack.top();
+		 op_stack.pop();
+		 return op1 + op2;
+	 } },
+	{ "um", [](std::stack<double> &op_stack) -> double {
+		 double op = op_stack.top();
+		 op_stack.pop();
+		 return -op;
+	 } },
+	{ "-", [](std::stack<double> &op_stack) -> double {
+		 double op2 = op_stack.top();
+		 op_stack.pop();
+		 double op1 = op_stack.top();
+		 op_stack.pop();
+		 return op1 - op2;
+	 } },
+	{ "^", [](std::stack<double> &op_stack) -> double {
+		 double op2 = op_stack.top();
+		 op_stack.pop();
+		 double op1 = op_stack.top();
+		 op_stack.pop();
+		 return std::pow(op1, op2);
+	 } },
+	{ "/", [](std::stack<double> &op_stack) -> double {
+		 double op2 = op_stack.top();
+		 op_stack.pop();
+		 double op1 = op_stack.top();
+		 op_stack.pop();
+		 return op1 / op2;
+	 } },
+	{ "%", [](std::stack<double> &op_stack) -> double {
+		 double op2 = op_stack.top();
+		 op_stack.pop();
+		 double op1 = op_stack.top();
+		 op_stack.pop();
+		 return std::fmod(op1, op2);
+	 } },
+	{ "*", [](std::stack<double> &op_stack) -> double {
+		 double op2 = op_stack.top();
+		 op_stack.pop();
+		 double op1 = op_stack.top();
+		 op_stack.pop();
+		 return op1 * op2;
+	 } }
 };
 
-const std::vector<TermRegex> regexes = {
-	TermRegex("(\\d+(?:\\.\\d+)?)", TYPE_CONST, 1, 1),
-	TermRegex("(\\w+)(\\(.*\\))", TYPE_FUNCTION, 4, 1, 2),
-	TermRegex("\\w+", TYPE_VARIABLE, 1),
-	TermRegex("\\s+", TYPE_NONE),
-	TermRegex("\\(", TYPE_OPEN_BRACKET, 0),
-	TermRegex("\\)", TYPE_CLOSING_BRACKET, 0),
-	TermRegex("\\+|-", TYPE_UNARY_OPERATOR, 4),
-	TermRegex("\\+|-", TYPE_BINARY_OPERATOR, 1),
+static std::map<std::string, Evaluator::Operator> functions = {
+	{ "sqrt", [](std::stack<double> &op_stack) -> double {
+		 double op = op_stack.top();
+		 op_stack.pop();
+		 return std::sqrt(op);
+	 } },
+	{ "abs", [](std::stack<double> &op_stack) -> double {
+		 double op = op_stack.top();
+		 op_stack.pop();
+		 return std::fabs(op);
+	 } },
+	{ "sin", [](std::stack<double> &op_stack) -> double {
+		 double op = op_stack.top();
+		 op_stack.pop();
+		 return std::sin(op);
+	 } },
+	{ "cos", [](std::stack<double> &op_stack) -> double {
+		 double op = op_stack.top();
+		 op_stack.pop();
+		 return std::cos(op);
+	 } },
 };
 
-std::vector<Term> parse(const std::string &str)
+void print_bricks(std::vector<Parser::Brick> &terms)
 {
-	std::vector<Term> terms;
-
-	int prev_type = TYPE_NONE;
-	int next_type = TYPE_UNARY_OPERATOR | TYPE_EXPR;
-
-	for (auto s_iter = str.cbegin(), s_end = str.cend(); s_iter != s_end;) {
-		std::smatch matches;
-
-		auto r_iter = regexes.begin();
-		for (; r_iter != regexes.end(); ++r_iter) {
-			if (std::regex_search(s_iter, s_end, matches, r_iter->re, std::regex_constants::match_continuous)) {
-				if (r_iter->type == TYPE_UNARY_OPERATOR && (prev_type & TYPE_EXPR)) {
-					continue;
-				} else if (r_iter->type == TYPE_BINARY_OPERATOR && !(prev_type & TYPE_EXPR)) {
-					continue;
-				} else if (!(r_iter->type & next_type)) {
-					continue;
-				}
-
-				auto match = matches.str(r_iter->group);
-				s_iter += match.length();
-
-				terms.push_back({
-					.val = std::move(match),
-					.type = r_iter->type,
-					.priority = r_iter->priority,
-				});
-
-				if (r_iter->recursive_group != -1) {
-					auto recursive_match = matches.str(r_iter->recursive_group);
-					auto recursive_terms = parse(recursive_match);
-					terms.insert(
-						terms.end(),
-						std::make_move_iterator(recursive_terms.begin()),
-						std::make_move_iterator(recursive_terms.end())
-					);
-					s_iter += recursive_match.length();
-				}
-
-				prev_type = r_iter->type;
-
-				if (r_iter->type & TYPE_BINARY_OPERATOR) {
-					next_type = TYPE_EXPR | TYPE_UNARY_OPERATOR;
-				} else if (r_iter->type & TYPE_UNARY_OPERATOR) {
-					next_type = TYPE_EXPR;
-				} else {
-					next_type = TYPE_ANY;
-				}
-
-				break;
-			}
-		}
-
-		if (r_iter == regexes.end()) {
-			throw std::invalid_argument("Unknown term");
+	for (auto &term : terms) {
+		if (term.type & Parser::Brick::BRACKETS) {
+			std::cout << "(";
+			print_bricks(term.bricks);
+			std::cout << ")";
+		} else if (term.type & Parser::Brick::FUNCTION) {
+			std::cout << term.val;
+			std::cout << "(";
+			print_bricks(term.bricks);
+			std::cout << ")";
+		} else {
+			std::cout << term.val;
 		}
 	}
-
-	return terms;
 }
 
-std::vector<Term> to_postfix(std::vector<Term> &terms)
+void print_terms(std::vector<Evaluator::Term> &terms)
 {
-	std::vector<Term> out;
-	std::vector<Term> stack;
-
-	for (auto term : terms) {
-		if (term.type & (TYPE_VARIABLE | TYPE_CONST)) {
-			out.push_back(std::move(term));
-			continue;
-		} else if (term.type & (TYPE_OPERATOR | TYPE_FUNCTION)) {
-			stack.push_back(std::move(term));
-			for (auto s_iter = stack.rbegin(); s_iter != stack.rend(); ++s_iter) {
-				if (s_iter->priority > term.priority) {
-					out.push_back(std::move(*s_iter));
-					s_iter = std::reverse_iterator(stack.erase(std::next(s_iter).base()));
-				}
-			}
-		} else if (term.type & TYPE_OPEN_BRACKET) {
-			stack.push_back(std::move(term));
-		} else if (term.type & TYPE_CLOSING_BRACKET) {
-			for (auto s_iter = stack.rbegin(); s_iter != stack.rend(); ++s_iter) {
-				if (s_iter->type != TYPE_OPEN_BRACKET) {
-					out.push_back(std::move(*s_iter));
-					s_iter = std::reverse_iterator(stack.erase(std::next(s_iter).base()));
-				} else {
-					stack.pop_back();
-					break;
-				}
-			}
-		}
+	for (auto &term : terms) {
+		std::cout << term.val;
 	}
-
-	return out;
 }
 
-typedef std::function<double(std::string, std::string)> BinaryOperator;
-typedef std::function<double(std::string)> UnaryOperator;
-
-std::map<std::string, BinaryOperator> binary_operators = {
-	{ "+",
-	  [](std::string _op1, std::string _op2) -> double {
-		  double op1 = std::stod(_op1);
-		  double op2 = std::stod(_op2);
-		  return op1 + op2;
-	  } }
-};
-
-std::map<std::string, UnaryOperator> unary_operators = {
-	{
-		"abs",
-		[](std::string _op) -> double {
-			double op = std::stod(_op);
-			return std::abs(op);
-		},
-	},
-	{ "-",
-	  [](std::string _op) -> double {
-		  double op = std::stod(_op);
-		  return -op;
-	  } }
-};
-
-double calc(std::vector<Term> postfix)
+void read_variables(std::set<std::string> &should_read, std::map<std::string, double> &variables)
 {
-	double result = 0;
-	std::vector<Term> stack;
+	std::regex re("(\\w+)\\s*=\\s*(-?\\d+(?:\\.\\d+)?)");
+	std::smatch matches;
+	std::string line;
 
-	for (auto term : postfix) {
-		if (term.type & TYPE_CONST) {
-			stack.push_back(std::move(term));
-		} else if (term.type & TYPE_BINARY_OPERATOR) {
-			auto op1 = std::move(stack.back());
-			stack.pop_back();
-			auto op2 = std::move(stack.back());
-			stack.pop_back();
+	size_t i = 0;
+	for (; i < should_read.size() && std::getline(std::cin, line); ++i) {
+		if (!std::regex_match(line, matches, re)) {
+			throw std::logic_error("Incorrect format on line " + std::to_string(i));
+		}
 
-			auto oper = binary_operators[term.val];
-			double oper_result = binary_operators[term.val](op1.val, op2.val);
-		} else if (term.type & TYPE_UNARY_OPERATOR) {
-			auto op = std::move(stack.back());
-			stack.pop_back();
+		std::string variable = matches.str(1);
+		std::string value = matches.str(2);
+
+		variables.insert({ variable, std::stod(value) });
+	}
+
+	if (i != should_read.size()) {
+		throw std::logic_error("Not enough variables read");
+	}
+
+	for (auto &var : should_read) {
+		if (!variables.contains(var)) {
+			throw std::logic_error("Variable '" + var + "' isn't specified");
 		}
 	}
 }
 
 int main()
 {
-	std::string str = "x+111-abs(-234)";
-	std::vector<Term> terms = parse(str);
-	std::vector<Term> postfix = to_postfix(terms);
+	Parser parser(regexes);
 
-	for (auto term : postfix) {
-		std::cout << term.val;
+	std::string str;
+	std::getline(std::cin, str);
+
+	auto terms = parser.parse(str);
+	auto postfix = Evaluator::to_postfix(terms);
+
+	std::set<std::string> should_read;
+	for (auto &term : postfix) {
+		if (term.type & Parser::Brick::VARIABLE && !variables.contains(term.val)) {
+			should_read.insert(term.val);
+		}
+
+		if (term.type & Parser::Brick::FUNCTION && !functions.contains(term.val)) {
+			throw std::logic_error("Function '" + term.val + "' isn't defined");
+		}
 	}
+
+	read_variables(should_read, variables);
+	Evaluator evaluator(operators, functions, variables);
+	std::cout << evaluator.evaluate(postfix) << std::endl;
 
 	return 0;
 }

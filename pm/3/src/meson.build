@@ -1,7 +1,11 @@
 src_files = [
+  'parser.cpp',
+  'evaluator.cpp',
 ]
 
 header_files = [
+  'parser.hpp',
+  'evaluator.hpp',
 ]
 
 libtask3 = both_libraries('task3', src_files)
