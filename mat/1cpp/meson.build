@@ -26,7 +26,6 @@ if cxx.get_id() == 'gcc'
     '-Werror=init-self',
     '-Werror=missing-include-dirs',
     '-Werror=pointer-arith',
-    '-Werror=implicit-function-declaration',
     ]
 elif cxx.get_id() == 'clang'
   cxx_args += [
@@ -45,7 +44,6 @@ elif cxx.get_id() == 'clang'
     '-Werror=missing-include-dirs',
     '-Werror=pointer-arith',
     '-Wno-strict-prototypes',
-    '-Werror=implicit-function-declaration',
     ]
 endif
 

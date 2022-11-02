@@ -1,7 +1,10 @@
 src_files = [
+  'path.cpp',
 ]
 
 header_files = [
+  'square_matrix.hpp',
+  'path.hpp',
 ]
 
 fmt_dep = dependency('fmt')
