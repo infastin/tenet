@@ -1,0 +1,4 @@
+.jukit/
+*.py
+*.tsv
+*.csv
