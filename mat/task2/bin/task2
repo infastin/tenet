@@ -1,0 +1,13 @@
+#!/usr/bin/env ruby
+# typed: strict
+# frozen_string_literal: true
+
+require_relative "../lib/task2.rb"
+
+set = Task2::DisjointSet.new
+
+5.times do |i|
+	set.make_set(i)
+end
+
+puts set.find(4)
