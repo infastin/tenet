@@ -1,3 +1,8 @@
+PATH
+  remote: .
+  specs:
+    task2 (0.0.1)
+
 GEM
   remote: https://rubygems.org/
   specs:
@@ -50,6 +55,7 @@ DEPENDENCIES
   sorbet
   sorbet-runtime
   tapioca
+  task2!
 
 BUNDLED WITH
    2.3.7

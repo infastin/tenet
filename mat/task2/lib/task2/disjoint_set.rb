@@ -3,49 +3,83 @@
 
 require "sorbet-runtime"
 
-class Task2::DisjointSet
-	extend T::Sig
+module Task2
+	class DisjointSet
+		extend T::Sig
 
-	sig { void }
-	def initialize 
-		@roots = T.let(Array[], T::Array[Integer])
-		@ranks = T.let(Array[], T::Array[Integer])
-	end
+		sig { params(size: T.nilable(Integer)).void }
+		def initialize(size: nil)
+			if size.nil?
+				@roots = Array[]
+				@ranks = Array[]
+			else
+				@roots = Array.new(size) { |i| i }
+				@ranks = Array.new(size, 0)
+			end
 
-	sig { params(x: Integer).void }
-	def make_set(x)
-		@roots[x] = x
-		@ranks[x] = 0
-	end
-
-	sig { params(x: Integer).returns(Integer) }
-	def find(x)
-		change_root = []
-
-		while @roots[x] != x
-			change_root << x
-			x = T.must(@roots[x])
+			@roots = T.let(@roots, T::Array[Integer])
+			@ranks = T.let(@ranks, T::Array[Integer])
 		end
 
-		for i in change_root
-			@roots[i] = x
+		sig { params(v: Integer).void }
+		def make_set(v)
+			@roots[v] = v
+			@ranks[v] = 0
 		end
 
-		return x
-	end
+		sig { params(v: Integer).returns(Integer) }
+		def find(v)
+			raise "No such element: #{v}" if @roots[v].nil?
 
-	sig { params(x: Integer, y: Integer).void }
-	def unite(x, y)
-		x_root = find(x)
-		y_root = find(y)
+			change_root = []
 
-		if T.must(@ranks[x_root]) > T.must(@ranks[y_root])
-			@roots[y_root] = x_root
-		else
-			@roots[x_root] = y_root
+			while @roots[v] != v
+				change_root << v
+				v = T.must(@roots[v])
+			end
 
-			if T.must(@ranks[x_root]) == T.must(@ranks[y_root])
-				@ranks[y_root] = T.must(@ranks[y_root]) + 1
+			for i in change_root
+				@roots[i] = v
+			end
+
+			v
+		end
+
+		sig { returns(T::Boolean) }
+		def coherent?
+			coherent = T.let(true, T::Boolean)
+			root = find(T.must(@roots[0]))
+
+			1.upto(@roots.length - 1) do |i|
+				if find(i) != root
+					coherent = false
+				end
+			end
+
+			coherent
+		end
+
+		sig { params(v: Integer).returns(Integer) }
+		def [](v)
+			return find(v)
+		end
+
+		sig { params(u: Integer, v: Integer).void }
+		def unite(u, v)
+			raise "No such element: #{u}" if @roots[u].nil?
+			raise "No such element: #{v}" if @roots[v].nil?
+
+			u_root = find(u)
+			v_root = find(v)
+
+			if T.must(@ranks[u_root]) > T.must(@ranks[v_root])
+				@roots[v_root] = u_root
+			else
+				@roots[u_root] = v_root
+
+				if T.must(@ranks[u_root]) == T.must(@ranks[v_root])
+					@ranks[v_root] = T.must(@ranks[v_root]) + 1
+				end
 			end
 		end
 	end
