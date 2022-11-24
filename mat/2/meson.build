@@ -52,8 +52,6 @@ elif cc.get_id() == 'clang'
   ]
 endif
 
-tribble = subproject('tribble')
-
 add_project_arguments(cc.get_supported_arguments(cc_args), language: 'c')
 
 subdir('src')

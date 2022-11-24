@@ -9,14 +9,10 @@
 #include <math.h>
 #include <string.h>
 
-i32 dijkstra_cmp(const void *a, const void *b)
+i32 dijkstra_cmp(const usize *a, const usize *b)
 {
-	usize i = *(const usize *) a;
-	usize j = *(const usize *) b;
-
 	f64 *dist = trb_lambda_context(f64);
-
-	return trb_f64cmp(&dist[i], &dist[j]);
+	return trb_spaceship(dist[*a], dist[*b]);
 }
 
 f64 *dijkstra(const AdjList *adj_list, usize start)
@@ -29,9 +25,7 @@ f64 *dijkstra(const AdjList *adj_list, usize start)
 	f64 *dist = trb_talloc(f64, n);
 	trb_exit_if_fail(dist != NULL);
 
-	for (usize i = 0; i < n; ++i) {
-		dist[i] = INFINITY;
-	}
+	trb_array_fill(dist, n, INFINITY);
 	dist[start] = 0;
 
 	TrbHeap pqueue;
@@ -55,7 +49,7 @@ f64 *dijkstra(const AdjList *adj_list, usize start)
 
 			if (new_dist < dist[node->index]) {
 				dist[node->index] = new_dist;
-				trb_heap_insert(&pqueue, trb_get_ptr(usize, node->index));
+				trb_heap_insert(&pqueue, &node->index);
 			}
 		}
 	}
@@ -73,9 +67,7 @@ f64 *ford_bellman(const AdjList *adj_list, usize start, bool *negative)
 	f64 *dist = trb_talloc(f64, n);
 	trb_exit_if_fail(dist != NULL);
 
-	for (usize i = 0; i < n; ++i) {
-		dist[i] = INFINITY;
-	}
+	trb_array_fill(dist, n, INFINITY);
 	dist[start] = 0;
 
 	usize k = 0;

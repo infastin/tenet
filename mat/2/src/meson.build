@@ -12,7 +12,7 @@ header_files = [
   'algorithm.h',
 ]
 
-libtribble_dep = tribble.get_variable('libtribble_dep')
+libtribble_dep = dependency('tribble-2.0')
 libtask2 = both_libraries('task2', src_files,
   dependencies: libtribble_dep,
 )

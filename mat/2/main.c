@@ -3,6 +3,7 @@
 #include "edge.h"
 
 #include <errno.h>
+#include <stddef.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -49,31 +50,94 @@ failure:
 	return NULL;
 }
 
+static TrbOptionParserSpec spec = {
+	.n_opts = 2,
+	.opts = (TrbOptionParserOpt[]){
+		{ "kruskal", 'k', FALSE, TRB_OPTION_PARSER_TYPE_BOOL, NULL, TRUE },
+		{ "prim", 'p', FALSE, TRB_OPTION_PARSER_TYPE_BOOL, NULL, TRUE },
+	}
+};
+
 int main(int argc, char *argv[])
 {
-	char *filename = "/home/infastin/Downloads/SST/test1.txt";
-	if (argc == 2) {
-		filename = argv[1];
+	TrbOptionParser parser;
+	trb_option_parser_init(&parser, &spec, argv, argc);
+
+	char *input = NULL;
+	char *output = NULL;
+
+	bool is_prim = FALSE;
+	bool is_kruskal = FALSE;
+
+	TrbOptionParserResult parsed;
+	while (trb_option_parser_parse(&parser, &parsed)) {
+		TrbOptionParserError *err = &parsed.error;
+		TrbOptionParserArgument *arg = &parsed.arg;
+		TrbOptionParserItem *item = &parsed.item;
+		char *error = NULL;
+
+		switch (parsed.shortopt) {
+		case '!':
+			error = trb_option_parser_error_str(err, NULL);
+			fprintf(stderr, "%s\n", error);
+			free(error);
+			break;
+		case '?':
+			if (input == NULL) {
+				input = arg->value;
+			} else if (output == NULL) {
+				output = arg->value;
+			}
+			break;
+		case 'k':
+			is_kruskal = item->arg.b;
+			break;
+		case 'p':
+			is_prim = item->arg.b;
+			break;
+		default:
+			__builtin_unreachable();
+		}
 	}
 
-	FILE *file = fopen(filename, "r");
-	AdjList *list = read_matrix(file);
+	if (input == NULL) {
+		fprintf(stderr, "Expected input filename!\n");
+		exit(EXIT_FAILURE);
+	}
+
+	if (output == NULL) {
+		fprintf(stderr, "Expected output filename!\n");
+		exit(EXIT_FAILURE);
+	}
+
+	if (!is_kruskal && !is_prim) {
+		fprintf(stderr, "Expected algorithm!\n");
+		exit(EXIT_FAILURE);
+	}
+
+	FILE *ifile = fopen(input, "r");
+	FILE *ofile = fopen(output, "w+");
+
+	AdjList *list = read_matrix(ifile);
 
 	f64 cost;
 	bool coherent;
+	TrbVector *edges;
 
-	TrbVector *edges_kr = kruskal(list, &cost, &coherent);
-	printf("Алгоритм Краскала:\n");
-	printf("%zu %lf %d\n", edges_kr->len, cost, coherent);
+	if (is_kruskal) {
+		edges = kruskal(list, &cost, &coherent);
+	} else if (is_prim) {
+		edges = prim(list, &cost, &coherent);
+	} else {
+		__builtin_unreachable();
+	}
 
-	TrbVector *edges_pr = prim(list, &cost, &coherent);
-	printf("Алгоритм Прима:\n");
-	printf("%zu %lf %d\n", edges_pr->len, cost, coherent);
+	printf("%zu %lf %d\n", edges->len, cost, coherent);
 
-	trb_vector_free(edges_pr, trb_free_func_null);
-	trb_vector_free(edges_kr, trb_free_func_null);
+	trb_vector_free(edges, trb_free_func_null);
 	adj_list_free(list);
-	fclose(file);
+	fclose(ofile);
+	fclose(ifile);
 
 	return 0;
 }
