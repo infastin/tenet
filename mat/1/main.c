@@ -51,59 +51,54 @@ failure:
 
 int main(int argc, char *argv[])
 {
-	if (argc < 3) {
-		printf("Expected filename and start index\n");
-		exit(EXIT_FAILURE);
-	}
-
-	FILE *file = fopen(argv[1], "r");
+	FILE *file = fopen(argv[2], "r");
 	AdjList *list = read_matrix(file);
 	usize n = list->size;
-	usize start = strtol(argv[2], NULL, 10);
 
-	f64 *dist_dijkstra = dijkstra(list, start);
-
-	if (n < 15) {
-		printf("Алгоритм Дейкстры:\n");
+	if (argv[1][0] == 'd') {
+		usize start = strtol(argv[3], NULL, 10);
+		f64 *dist = dijkstra(list, start);
+		
+		FILE *out = fopen(argv[4], "w+");
 		for (usize i = 0; i < n; ++i) {
-			printf("%4.0f ", dist_dijkstra[i]);
+			fprintf(out, "%4.0f ", dist[i]);
 		}
-		printf("\n");
-	}
 
+		free(dist);
+		fclose(out);
+	} else if (argv[1][0] == 'b') {
+		usize start = strtol(argv[3], NULL, 10);
+		FILE *out = fopen(argv[4], "w+");
 
-	bool negative;
-	f64 *fb_dist = ford_bellman(list, start, &negative);
+		bool negative;
+		f64 *dist = ford_bellman(list, start, &negative);
 
-	if (n < 15) {
-		printf("Алгоритм Форда-Беллмана:\n");
 		if (negative) {
-			printf("Negative");
+			fprintf(out, "-");
 		} else {
 			for (usize i = 0; i < n; ++i) {
-				printf("%4.0f ", fb_dist[i]);
+				fprintf(out, "%4.0f ", dist[i]);
 			}
 		}
-		printf("\n");
-	}
 
+		free(dist);
+		fclose(out);
+	} else {
+		FILE *out = fopen(argv[3], "w+");
+		f64 (*dist)[n][n] =  (f64 (*)[n][n]) floyd_warshall(list);
 
-	f64 (*fw_dist)[n][n] =  (f64 (*)[n][n]) floyd_warshall(list);
-
-	if (n < 15) {
-		printf("Алгоритм Флойда-Уоршелла:\n");
 		for (usize i = 0; i < n; ++i) {
 			for (usize j = 0; j < n; ++j) {
-				printf("%4.0f ", (*fw_dist)[i][j]);
+				fprintf(out, "%4.0f ", (*dist)[i][j]);
 			}
 
-			printf("\n");
+			fprintf(out, "\n");
 		}
-	}
 
-	free(fw_dist);
-	free(fb_dist);
-	free(dist_dijkstra);
+		fclose(out);
+		free(dist);
+	}
+	
 	adj_list_free(list);
 	fclose(file);
 

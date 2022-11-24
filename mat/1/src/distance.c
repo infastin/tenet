@@ -131,7 +131,7 @@ f64 *floyd_warshall(const AdjList *adj_list)
 
 		for (usize j = 0; j < vertex->edges.len; ++j) {
 			AdjListNode *node = adj_list_node(vertex, j);
-			(*dist)[i][node->index] = node->dist;
+			(*dist)[vertex->index][node->index] = node->dist;
 		}
 	}
 
