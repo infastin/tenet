@@ -47,12 +47,7 @@ Parser::BrickRegex &&Parser::BrickRegexBuilder::build()
 	return std::move(regex);
 }
 
-Parser::Parser(const std::vector<BrickRegex> &regexes)
-{
-	this->regexes = regexes;
-}
-
-std::vector<Parser::Brick> Parser::parse(const std::string &str)
+std::vector<Parser::Brick> Parser::parse(const std::vector<BrickRegex> &regexes, const std::string &str)
 {
 	std::vector<Brick> bricks;
 
@@ -65,6 +60,11 @@ std::vector<Parser::Brick> Parser::parse(const std::string &str)
 		auto r_iter = regexes.begin();
 		for (; r_iter != regexes.end(); ++r_iter) {
 			if (std::regex_search(s_iter, s_end, matches, r_iter->re, std::regex_constants::match_continuous)) {
+				if (r_iter->type == Brick::NONE) {
+					s_iter += matches.str().size();
+					break;
+				}
+
 				if (r_iter->type == Brick::UNARY_OPERATOR && (prev_type & Brick::EXPR)) {
 					continue;
 				} else if (r_iter->type == Brick::BINARY_OPERATOR && !(prev_type & Brick::EXPR)) {
@@ -86,7 +86,7 @@ std::vector<Parser::Brick> Parser::parse(const std::string &str)
 				std::vector<Brick> recursive_bricks;
 				if (r_iter->props & BrickRegex::USE_RECURSION) {
 					auto recursive_match = matches.str(r_iter->recursive_group);
-					recursive_bricks = parse(recursive_match);
+					recursive_bricks = parse(regexes, recursive_match);
 				}
 
 				bricks.push_back(Brick{
@@ -116,4 +116,64 @@ std::vector<Parser::Brick> Parser::parse(const std::string &str)
 	}
 
 	return bricks;
+}
+
+void Parser::to_postfix(
+	const std::vector<Parser::Brick> &bricks,
+	std::vector<Parser::Term> &stack,
+	std::vector<Parser::Term> &out
+)
+{
+	const size_t orig_size = stack.size();
+
+	for (auto &brick : bricks) {
+		if (brick.type & (Parser::Brick::VARIABLE | Parser::Brick::CONST)) {
+			out.push_back(Parser::Term{
+				.val = brick.val,
+				.type = brick.type,
+				.priority = brick.priority,
+			});
+		} else if (brick.type & Parser::Brick::OPERATOR) {
+			while (stack.size() != orig_size && stack.back().priority >= brick.priority) {
+				out.push_back(std::move(stack.back()));
+				stack.pop_back();
+			}
+
+			stack.push_back(Parser::Term{
+				.val = brick.val,
+				.type = brick.type,
+				.priority = brick.priority,
+			});
+		} else if (brick.type & (Parser::Brick::BRACKETS | Parser::Brick::FUNCTION)) {
+			size_t cur_size = stack.size();
+			to_postfix(brick.bricks, stack, out);
+			while (stack.size() != cur_size) {
+				out.push_back(std::move(stack.back()));
+				stack.pop_back();
+			}
+
+			if (brick.type & Parser::Brick::FUNCTION) {
+				stack.push_back(Parser::Term{
+					.val = brick.val,
+					.type = brick.type,
+					.priority = brick.priority,
+				});
+			}
+		}
+	}
+}
+
+std::vector<Parser::Term> Parser::to_postfix(const std::vector<Parser::Brick> &bricks)
+{
+	std::vector<Parser::Term> out;
+	std::vector<Parser::Term> stack;
+
+	to_postfix(bricks, stack, out);
+
+	while (!stack.empty()) {
+		out.push_back(std::move(stack.back()));
+		stack.pop_back();
+	}
+
+	return out;
 }

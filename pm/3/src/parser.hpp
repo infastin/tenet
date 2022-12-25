@@ -44,6 +44,12 @@ public:
 		int group;
 	};
 
+	struct Term {
+		std::string val;
+		Parser::Brick::Type type;
+		int priority;
+	};
+
 	class BrickRegexBuilder {
 		BrickRegex regex;
 
@@ -56,12 +62,15 @@ public:
 		BrickRegex &&build();
 	};
 
-	Parser(const std::vector<BrickRegex> &regexes);
-
-	std::vector<Brick> parse(const std::string &str);
+	static std::vector<Brick> parse(const std::vector<BrickRegex> &regexes, const std::string &str);
+	static std::vector<Term> to_postfix(const std::vector<Parser::Brick> &bricks);
 
 private:
-	std::vector<BrickRegex> regexes;
+	static void to_postfix(
+		const std::vector<Parser::Brick> &terms,
+		std::vector<Term> &stack,
+		std::vector<Term> &out
+	);
 };
 
 #endif /* end of include guard: PARSER_HPP_GLRQIUEV */

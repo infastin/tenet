@@ -6,6 +6,7 @@ src_files = [
 header_files = [
   'parser.hpp',
   'evaluator.hpp',
+  'calculator.hpp',
 ]
 
 libtask3 = both_libraries('task3', src_files)

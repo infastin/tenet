@@ -1,3 +1,4 @@
+#include "calculator.hpp"
 #include "evaluator.hpp"
 #include "parser.hpp"
 
@@ -97,32 +98,12 @@ static std::map<std::string, Evaluator::Operator> functions = {
 		 op_stack.pop();
 		 return std::cos(op);
 	 } },
+	{ "log", [](std::stack<double> &op_stack) -> double {
+		double op = op_stack.top();
+		op_stack.pop();
+		return std::log(op);
+	 } }
 };
-
-void print_bricks(std::vector<Parser::Brick> &terms)
-{
-	for (auto &term : terms) {
-		if (term.type & Parser::Brick::BRACKETS) {
-			std::cout << "(";
-			print_bricks(term.bricks);
-			std::cout << ")";
-		} else if (term.type & Parser::Brick::FUNCTION) {
-			std::cout << term.val;
-			std::cout << "(";
-			print_bricks(term.bricks);
-			std::cout << ")";
-		} else {
-			std::cout << term.val;
-		}
-	}
-}
-
-void print_terms(std::vector<Evaluator::Term> &terms)
-{
-	for (auto &term : terms) {
-		std::cout << term.val;
-	}
-}
 
 void read_variables(std::set<std::string> &should_read, std::map<std::string, double> &variables)
 {
@@ -155,13 +136,11 @@ void read_variables(std::set<std::string> &should_read, std::map<std::string, do
 
 int main()
 {
-	Parser parser(regexes);
-
 	std::string str;
 	std::getline(std::cin, str);
 
-	auto terms = parser.parse(str);
-	auto postfix = Evaluator::to_postfix(terms);
+	auto terms = Parser::parse(regexes, str);
+	auto postfix = Parser::to_postfix(terms);
 
 	std::set<std::string> should_read;
 	for (auto &term : postfix) {
