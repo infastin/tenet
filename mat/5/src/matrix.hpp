@@ -16,6 +16,13 @@ public:
 	using value_type = T;
 	using reference = value_type &;
 	using const_reference = const value_type &;
+	using pointer = typename _alloc_traits::pointer;
+
+	matrix() noexcept
+		: m_allocator(Allocator())
+		, m_data(nullptr)
+		, m_size(0)
+	{}
 
 	matrix(size_type size)
 		: m_allocator(Allocator())
@@ -51,8 +58,32 @@ public:
 		: m_allocator(_alloc_traits::select_on_copy(other.m_allocator))
 	{ _init_copy(other); }
 
+	matrix(matrix &&other) noexcept
+		: m_allocator(std::move(other.m_allocator))
+	{ _init_move(std::move(other)); }
+
 	~matrix() noexcept
+	{ clear(); }
+
+	matrix &
+	operator=(const matrix &other)
+	{ swap(matrix(other)); return *this; }
+
+	matrix &
+	operator=(matrix &&other) noexcept
+	{ swap(matrix(std::move(other))); return *this; }
+
+	size_type
+	size() const noexcept
+	{ return m_size; }
+
+	void
+	clear() noexcept
 	{
+		if (m_size == 0) {
+			return;
+		}
+
 		for (size_type i = 0; i < m_size; ++i) {
 			for (size_type j = 0; j < m_size; ++j) {
 				_alloc_traits::destroy(m_allocator, &m_data[i * m_size + j]);
@@ -60,11 +91,10 @@ public:
 		}
 
 		_alloc_traits::deallocate(m_allocator, m_data, m_size * m_size);
-	}
 
-	size_type
-	size() const noexcept
-	{ return m_size; }
+		m_size = 0;
+		m_data = nullptr;
+	}
 
 	reference
 	operator[](std::pair<size_type, size_type> ij)
@@ -108,8 +138,18 @@ public:
 
 private:
 	Allocator m_allocator;
-	T *m_data;
+	pointer m_data;
 	size_type m_size;
+
+	void
+	_init_move(matrix &&other) noexcept
+	{
+		m_size = other.m_size;
+		m_data = other.m_data;
+
+		other.m_size = 0;
+		other.m_data = nullptr;
+	}
 
 	void
 	_init_copy(const matrix &other)

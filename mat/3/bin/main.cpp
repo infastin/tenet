@@ -161,11 +161,8 @@ namespace detail {
 				count += cnt;
 			}
 
-			auto vcomp = std::ranges::find(complete, vertex);
-			complete.erase(vcomp);
-
-			auto vcan = std::ranges::find(candidates, vertex);
-			candidates.erase(vcan);
+			complete.pop_back();
+			candidates.pop_front();
 
 			unwanted.push_back(vertex);
 		}

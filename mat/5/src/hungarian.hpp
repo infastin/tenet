@@ -118,7 +118,11 @@ _hungarian_find_prime(
 	usize prime_col;
 
 	for (usize i = 0; i < ngoals; ++i) {
-		usize mark_col = std::numeric_limits<usize>::max();
+		if (covered_rows[i]) {
+			continue;
+		}
+
+		usize mark_col = usize(-1);
 
 		for (usize j = 0; j < ngoals; ++j) {
 			if (marks[{i, j}] == mark_t::mark) {
@@ -134,16 +138,16 @@ _hungarian_find_prime(
 			prime_row = i;
 			prime_col = j;
 
-			if (mark_col == std::numeric_limits<usize>::max()) {
-				for (; j < ngoals; ++j) {
-					if (marks[{i, j}] == mark_t::mark) {
-						mark_col = j;
+			if (mark_col == usize(-1)) {
+				for (usize k = 0; k < ngoals; ++k) {
+					if (marks[{i, k}] == mark_t::mark) {
+						mark_col = k;
 						break;
 					}
 				}
 			}
 
-			if (mark_col != std::numeric_limits<usize>::max()) {
+			if (mark_col != usize(-1)) {
 				covered_rows[i] = true;
 				covered_cols[mark_col] = false;
 				break;
@@ -331,12 +335,12 @@ hungarian_assignment(const matrix<T> &distances)
 		detail::_hungarian_alt_marks(marks, prime_row, prime_col);
 
 		for (usize i = 0; i < ngoals; ++i) {
-			covered_cols[i] = false;
 			covered_rows[i] = false;
+			covered_cols[i] = false;
 		}
 	}
 
-	oct::vector<usize> result(ngoals, std::numeric_limits<usize>::max());
+	oct::vector<usize> result(ngoals, usize(-1));
 	for (usize i = 0; i < ngoals; ++i) {
 		for (usize j = 0; j < ngoals; ++j) {
 			if (marks[{i, j}] == detail::mark_t::mark) {

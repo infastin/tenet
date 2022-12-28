@@ -6,20 +6,41 @@
 #include <fstream>
 #include <deque>
 
+template<typename T>
+std::istream &
+operator>>(std::istream &stream, matrix<T> &matr)
+{
+	usize n;
+	stream >> n;
+
+	matr = matrix<T>(n);
+
+	for (usize i = 0; i < n; ++i) {
+		for (usize j = 0; j < n; ++j) {
+			stream >> matr[{i, j}];
+		}
+	}
+
+	return stream;
+}
+
 int main(int, char *argv[])
 {
-	matrix<u32> m {
-		{ 82, 83, 69, 92 },
-		{ 77, 37, 49, 92 },
-		{ 11, 69, 5, 86 },
-		{ 8, 9, 98, 23 }
-	};
+	std::fstream in(argv[1], std::ios_base::in);
+	std::fstream out(argv[2], std::ios_base::out);
 
-	oct::vector<usize> assigned = hungarian_assignment(m);
+	matrix<f64> matr;
+	in >> matr;
 
-	for (usize i = 0; i < 4; ++i) {
-		oct::fmt::print("%v ", assigned[i]);
+	oct::vector<usize> assigned = hungarian_assignment(matr);
+	
+	f64 sum = 0;
+	for (usize i = 0; i < matr.size(); ++i) {
+		sum += matr[{i, assigned[i]}];
+		oct::fmt::oprintln(out, "%d: %d", i, assigned[i]);
 	}
+	
+	oct::fmt::println("%f", sum);
 
 	return 0;
 }

@@ -3,7 +3,7 @@ src_files = [
 ]
 
 header_files = [
-
+  'adj_list.hpp'
 ]
 
 liboctangle_dep = octangle.get_variable('liboctangle_dep')
